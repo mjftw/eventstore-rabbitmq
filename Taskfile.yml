@@ -1,0 +1,53 @@
+version: '3'
+
+tasks:
+  default:
+    desc: "Run the event simulator, replay API, and management UI"
+    deps: [run_all]
+
+  run_all:
+    desc: "Run all services (EventStoreDB, RabbitMQ, event simulator, replay API, and management UI)"
+    deps: [start_services, run_event_simulator, run_replay_api, run_management_ui]
+
+  run_all_ingress:
+    desc: "Run the services that are required for ingesting events"
+    deps: [start_services, run_event_simulator, run_consumer]
+
+  run_all_replay:
+    desc: "Run the services that are required for replaying events"
+    deps: [start_services, run_replay_api, run_management_ui]
+
+  run_event_simulator:
+    desc: "Run the event simulator script to generate events and publish them to RabbitMQ"
+    cmds:
+      - poetry run python event_simulator.py
+
+  run_consumer:
+    desc: "Run the consumer script to consume events from RabbitMQ"
+    cmds:
+      - poetry run python consumer.py
+
+  run_replay_api:
+    desc: "Run the FastAPI replay API to replay events from EventStoreDB to RabbitMQ"
+    cmds:
+      - poetry run uvicorn replay_api:app --host 0.0.0.0 --port 8000
+
+  run_management_ui:
+    desc: "Run the Streamlit management UI for triggering event replays"
+    cmds:
+      - poetry run python replay_management_ui.py
+
+  start_services:
+    desc: "Start the required Docker services (EventStoreDB and RabbitMQ)"
+    cmds:
+      - docker compose up -d
+
+  stop_services:
+    desc: "Stop the Docker services (EventStoreDB and RabbitMQ)"
+    cmds:
+      - docker compose down
+
+  install_dependencies:
+    desc: "Install all required dependencies using Poetry"
+    cmds:
+      - poetry install
