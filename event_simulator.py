@@ -3,7 +3,7 @@ import random
 import time
 from datetime import datetime
 import json
-from esdbclient import EventStoreDBClient, NewEvent, StreamState
+import pika
 
 # Expanded list of sample products and users
 PRODUCTS = [
@@ -33,19 +33,19 @@ USERS = [
 ]
 
 EVENT_TYPES = {
-    "UserRegistered": "user-events-stream",
-    "ProductViewed": "product-views-stream",
-    "ProductAddedToCart": "cart-events-stream",
-    "ProductRemovedFromCart": "cart-events-stream",
-    "OrderPlaced": "order-events-stream",
-    "PaymentProcessed": "payment-events-stream",
-    "OrderShipped": "shipping-events-stream",
-    "OrderDelivered": "delivery-events-stream",
-    "ProductReviewed": "review-events-stream",
-    "UserLoggedIn": "user-auth-stream",
-    "UserLoggedOut": "user-auth-stream",
-    "ProductWishlistAdded": "wishlist-events-stream",
-    "ProductWishlistRemoved": "wishlist-events-stream"
+    "UserRegistered": "user-events",
+    "ProductViewed": "product-views",
+    "ProductAddedToCart": "cart-events",
+    "ProductRemovedFromCart": "cart-events",
+    "OrderPlaced": "order-events",
+    "PaymentProcessed": "payment-events",
+    "OrderShipped": "shipping-events",
+    "OrderDelivered": "delivery-events",
+    "ProductReviewed": "review-events",
+    "UserLoggedIn": "user-auth",
+    "UserLoggedOut": "user-auth",
+    "ProductWishlistAdded": "wishlist-events",
+    "ProductWishlistRemoved": "wishlist-events"
 }
 
 def simulate_event(users, products, event_types):
@@ -97,35 +97,33 @@ def event_generator(event_types=EVENT_TYPES, users=USERS, products=PRODUCTS, int
         yield simulate_event(users, products, event_types)
         time.sleep(random.uniform(*interval))  # Random delay between events to mimic real traffic
 
-# Example Usage: Push Data into EventStoreDB
-def write_to_eventstore(event, event_types):
-    """Writes an event to EventStoreDB."""
-    # Use esdbclient to connect to EventStoreDB
-    client = EventStoreDBClient(uri="esdb://localhost:2113?Tls=false")
+def publish_event_to_rabbitmq(event, event_type):
+    """Publishes an event to RabbitMQ."""
+    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    channel = connection.channel()
 
-    # Create a NewEvent object for the event
-    event_data = NewEvent(
-        type=event["event_type"],
-        data=json.dumps(event).encode("utf-8")
+    # Declare the exchange and routing key based on event type
+    exchange_name = 'ecommerce-exchange'
+    routing_key = event_type
+
+    # Ensure the exchange exists
+    channel.exchange_declare(exchange=exchange_name, exchange_type='topic')
+
+    # Publish the message
+    channel.basic_publish(
+        exchange=exchange_name,
+        routing_key=routing_key,
+        body=json.dumps(event),
+        properties=pika.BasicProperties(content_type='application/json')
     )
 
-    # Get stream name based on event type
-    stream_name = event_types[event["event_type"]]
-
-    # Append the new event to the appropriate stream
-    try:
-        client.append_to_stream(
-            stream_name=stream_name,
-            current_version=StreamState.ANY,  # Allow optimistic concurrency control
-            events=[event_data]
-        )
-        print(f"Event written to {stream_name}: {event}")
-    except Exception as e:
-        print(f"Error writing to EventStoreDB: {e}")
+    print(f"Event published to RabbitMQ: {event}")
+    connection.close()
 
 if __name__ == "__main__":
     try:
-        for event in event_generator(interval=(0.01, 0.1)):  # Adjust interval to control event rate
-            write_to_eventstore(event, EVENT_TYPES)
+        # Use event_generator to produce events
+        for event in event_generator(interval=(0.01, 0.5)):  # Adjust interval to control event rate
+            publish_event_to_rabbitmq(event, EVENT_TYPES[event["event_type"]])
     except KeyboardInterrupt:
         print("Event generation stopped.")

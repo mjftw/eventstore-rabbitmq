@@ -7,6 +7,7 @@ authors = ["Merlin Webster <mjftwebster@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 esdbclient = "^1.1.1"
+pika = "^1.3.2"
 
 [tool.poetry.dev-dependencies]
 eventstore = "^0.1"

@@ -20,6 +20,15 @@ services:
         source: eventstore-volume-logs
         target: /var/log/eventstore
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
 volumes:
   eventstore-volume-data:
   eventstore-volume-logs:
