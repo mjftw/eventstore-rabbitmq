@@ -123,7 +123,7 @@ def publish_event_to_rabbitmq(event, event_type):
 if __name__ == "__main__":
     try:
         # Use event_generator to produce events
-        for event in event_generator(interval=(0.01, 0.5)):  # Adjust interval to control event rate
+        for event in event_generator(interval=(0.01, 0.1)):  # Adjust interval to control event rate
             publish_event_to_rabbitmq(event, EVENT_TYPES[event["event_type"]])
     except KeyboardInterrupt:
         print("Event generation stopped.")
